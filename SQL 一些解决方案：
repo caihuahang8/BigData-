@@ -1,0 +1,11 @@
+SQL 一些解决方案：
+
+create table imooc_spark3(
+word varchar(50) default null,
+wordscount int(10) default null,
+PRIMARY KEY (word)
+);
+根据主键来判断，如果存在word就进行update，如果没有就直接新增
+  INSERT INTO imooc_spark2(word,wordscount)  VALUES('nihao',3)
+
+     ON DUPLICATE KEY UPDATE wordscount=values(wordscount);

@@ -1,0 +1,96 @@
+Spark streaming
+通过sumit来提交作业：
+./spark-submit --master local[2] \
+--class org.apache.spark.examples.streaming.NetworkWordCount \
+--name NetworkWordCount \
+/home/hadoop/app/spark-2.2.0-bin-2.6.0-cdh5.7.0/examples/jars/spark-examples_2.11-2.2.0.jar hadoop000 9999
+
+
+create table imooc_spark3(
+word varchar(50) default null,
+wordscount int(10) default null,
+PRIMARY KEY (word)
+);
+根据主键来判断，如果存在word就进行update，如果没有就直接新增
+  INSERT INTO imooc_spark3(word)  VALUES('a',12)
+
+  ON DUPLICATE KEY UPDATE wordscount=12;
+
+==========>> Approach 1: Flume-style Push-based Approach方法1：水槽式推送方法
+
+
+配置config：官方样本
+agent.sinks = avroSink
+agent.sinks.avroSink.type = avro
+agent.sinks.avroSink.channel = memoryChannel
+agent.sinks.avroSink.hostname = <chosen machine's hostname>
+agent.sinks.avroSink.port = <chosen port on the machine>
+
+自己配置：
+simple-agent.sources = netcat-source 
+simple-agent.sinks = avro-sink
+simple-agent.channels = memory-channel
+
+simple-agent.sources.netcat-source.type = netcat
+simple-agent.sources.netcat-source.bind = 192.168.195.133 //服务器的端口
+simple-agent.sources.netcat-source.port = 44444
+
+simple-agent.sinks.avro-sink.type = avro
+simple-agent.sinks.avro-sink.hostname = 192.168.195.1 //要写入的接收端
+simple-agent.sinks.avro-sink.port = 41414
+
+simple-agent.channels.memory-channel.type = memory
+
+simple-agent.sources.netcat-source.channels = memory-channel
+simple-agent.sinks.avro-sink.channel = memory-channel
+
+flume-ng agent  \
+--name simple-agent   \
+--conf $FLUME_HOME/conf    \
+--conf-file $FLUME_HOME/conf/flume_push_streaming.conf  \
+-Dflume.root.logger=INFO,console
+
+
+
+======
+Pull方式整合
+
+Flume Agent的编写： flume_pull_streaming.conf
+
+simple-agent.sources = netcat-source
+simple-agent.sinks = spark-sink
+simple-agent.channels = memory-channel
+
+simple-agent.sources.netcat-source.type = netcat
+simple-agent.sources.netcat-source.bind = 192.168.195.134
+simple-agent.sources.netcat-source.port = 44444
+
+simple-agent.sinks.spark-sink.type = org.apache.spark.streaming.flume.sink.SparkSink
+simple-agent.sinks.spark-sink.hostname = 192.168.195.1
+simple-agent.sinks.spark-sink.port = 41414
+
+simple-agent.channels.memory-channel.type = memory
+
+simple-agent.sources.netcat-source.channels = memory-channel
+simple-agent.sinks.spark-sink.channel = memory-channel
+
+flume-ng agent  \
+--name simple-agent   \
+--conf $FLUME_HOME/conf    \
+--conf-file $FLUME_HOME/conf/flume_pull_streaming.conf  \
+-Dflume.root.logger=INFO,console
+
+
+spark-submit \
+--class com.imooc.spark.FlumePullWordCount \
+--master local[2] \
+--packages org.apache.spark:spark-streaming-flume_2.11:2.2.0 \
+/home/hadoop/lib/sparktrain-1.0.jar \
+hadoop000 41414
+
+
+
+spark-Streaming direct和receiver方式读取的区别
+区别：
+Spark-Streaming获取kafka数据的两种方式-Receiver与Direct的方式，可以从代码中简单理解成Receiver方式是通过zookeeper来连接kafka队列，Direct方式是直接连接到kafka的节点上获取数据了。
+
